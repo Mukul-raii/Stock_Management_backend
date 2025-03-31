@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Shop {
+  Vamanpuri
+  Amariya
+}
+
+enum User {
+  employee
+  admin
+}
+
+model user {
+  id       Int    @id @default(autoincrement())
+  name     String
+  userName String
+  password String
+  role     User
+}
+
+model stock {
+  id          Int      @id @default(autoincrement())
+  product     String
+  size        Int
+  quantity    Int
+  price       Int
+  lastUpdated DateTime @default(now())
+  shop        Shop
+}
+
+model record {
+  id            Int      @id @default(autoincrement())
+  recordName    String
+  shopName      Shop
+  message       String
+  amount        Int
+  date          DateTime @default(now())
+  paymentMethod String
+}
+
+model BillHistory {
+  id                   Int            @id @default(autoincrement())
+  updatedStocks        UpdatedStock[]
+  pdfDate              DateTime       @db.Timestamp(3)
+  totalSale            Int?
+  upiPayment           Int?
+  discount             Int?
+  breakageCash         Int?
+  canteenCash          Int?
+  totalDesiSale        Int?
+  totalBeerSale        Int?
+  salary               Int?
+  shop                 Shop
+  rateDiff             Int?
+  transportation       Int?
+  rent                 Int?
+  totalPaymentReceived Int?
+  date                 DateTime       @default(now()) @db.Timestamp(3)
+}
+
+model UpdatedStock {
+  id            Int      @id @default(autoincrement())
+  billHistory   BillHistory @relation(fields: [id], references: [id])
+  product       String
+  size          Int
+  lastQuantity  Int
+  quantity      Int
+  price         Int
+  totalSale     Int
+  newQuantity   Int
+  lastUpdated   DateTime    @db.Timestamp(3)
+  Shop          String
+}
