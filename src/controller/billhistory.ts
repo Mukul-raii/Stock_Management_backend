@@ -69,11 +69,21 @@ export const generateBillHistory = async (req: Request, res: Response): Promise<
   }
 };
 
+
 export const getAllBillHistory = async (req: Request, res: Response): Promise<void> => {
+  const {Shop} = req.query
+  
   try {
-    const result = await prisma.billHistory.findMany();
+    const result = await prisma.billHistory.findMany({
+      where:{
+        shop: Shop as Shop 
+      }
+    });
+    
      res.status(200).json(result);
   } catch (error) {
+    console.log(error);
+    
      res.status(500).json(error);
   }
 };
