@@ -15,8 +15,10 @@ export const getAllStocks = async (
       where: {
         shop: Shop as Shop,
       },
+      orderBy:{
+        id:'asc'
+      }
     });
-console.log(result);
 
     res.status(200).json(result);
   } catch (error) {
@@ -28,20 +30,17 @@ export const addNewStocks = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { product, size, quantity, price, shop } = req.body;
-  console.log(req.body.size);
+  const { product, size, price, shop } = req.body;
 
   try {
     const result = await prisma.stock.create({
       data: {
         product: product,
         size: size,
-        quantity: quantity,
         price: price,
         shop: shop,
       },
     });
-    console.log(result);
 
     res.status(200).json(result);
   } catch (error) {
@@ -55,18 +54,26 @@ export const updateStock = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { id, quantity } = req.body;
+  const { shopName,newQuantities } = req.body;
+  
   try {
-    let result = await prisma.stock.update({
-      where: {
-        id: id,
-      },
-      data: {
-        quantity: quantity,
-        lastUpdated: new Date(),
-      },
-    });
-    res.status(200).json(result);
+    await Promise.all(
+      Object.entries(newQuantities).map(async ([id, quantity]) => {
+        await prisma.stock.update({
+          where: {
+            id: Number(id), // Convert string key to number
+            shop: shopName
+            },
+            data: {
+            quantity: {
+              increment: Number(quantity) // Use Prisma's increment operation
+            }
+          }
+        });
+      })
+    );
+
+    res.status(200).json({});
   } catch (error) {
     res.status(500).json(error);
   }
@@ -105,14 +112,14 @@ export const transferStock = async (
     if (!stock) {
       return res.status(401).json({ message: "Stock not found" });
     }
-    if (stock.quantity < transferQuantity) {
+    if (stock.quantity && stock.quantity < transferQuantity) {
       return res.status(401).json({ message: "Not enough stock" });
     }
 
     await prisma.stock.update({
       where: { id: stock.id },
       data: {
-        quantity: stock.quantity - transferQuantity,
+        quantity: stock.quantity ? stock.quantity - transferQuantity :  null
       },
     });
     return res.json({ message: "Stock updated successfully" });

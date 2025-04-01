@@ -6,6 +6,6 @@ const router = Router();
 router.get("/get_all_stocks", getAllStocks);
 router.post("/add_new_stock", addNewStocks);
 //router.post("/transfer_stock", transferStock);
-router.post("/update_stock", updateStock);
+router.put("/update_stock", updateStock);
 
 export default router;
