@@ -4,8 +4,9 @@ import BillHistory from "./routes/billhistory";
 import Record from "./routes/record";
 import Stock from "./routes/stock";
 import bodyParser from "body-parser";
+import cors from 'cors'
 
-
+app.use(cors())
 app.use(bodyParser());
 app.use("/record", Record);
 app.use("/billhistory", BillHistory);

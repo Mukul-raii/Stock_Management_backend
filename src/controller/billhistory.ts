@@ -5,46 +5,66 @@ import * as e from "express";
 const prisma = new PrismaClient();
 
 export const generateBillHistory = async (req: Request, res: Response): Promise<void> => {
+  console.log(req.body);
+  
   const {
-    updatedStocks,
-    pdfDate,
-    totalSale,
+    stockData,
+    date,
+    totalCash,
     upiPayment,
     discount,
     breakageCash,
     canteenCash,
-    totalDesiSale,
+    totalLiquorSale,
     totalBeerSale,
-    salary,
-    shop,
+    cashLeft,
+    shopName,
     rent,
-    rateDiff,
-    totalPaymentReceived,
+    ratedifference,
     transportation,
   } = req.body;
 
   try {
+
+
+    const stockUpdate = stockData.map(async (stock:any)=>{
+     const result = await  prisma.stock.update({
+        where:{
+          shop:shopName,
+          id:stock.id,
+          product:stock.product
+        },
+        data:{
+          quantity:stock.lastQuantity
+        }
+      })
+      
+    })
+
+    
+
     const result = await prisma.billHistory.create({
       data: {
-        updatedStocks: updatedStocks,
-        pdfDate: pdfDate,
-        totalSale: totalSale,
+        updatedStocks: {create:[...stockData]},
+        pdfDate: date,
+        totalSale: totalCash,
         upiPayment: upiPayment,
         discount: discount,
         breakageCash: breakageCash,
         canteenCash: canteenCash,
-        totalDesiSale: totalDesiSale,
+        totalDesiSale: totalLiquorSale,
         totalBeerSale: totalBeerSale,
-        salary: salary,
-        shop: shop,
+        shop: shopName,
         rent: rent,
-        rateDiff: rateDiff,
-        totalPaymentReceived: totalPaymentReceived,
+        rateDiff: ratedifference,
         transportation: transportation,
+        totalCashReceived: cashLeft,
       },
     });
      res.status(200).json(result);
   } catch (error) {
+    console.log(error);
+    
      res.status(500).json(error);
   }
 };
