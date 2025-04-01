@@ -35,7 +35,7 @@ model stock {
   id          Int      @id @default(autoincrement())
   product     String
   size        Int
-  quantity    Int
+  quantity    Int?
   price       Int
   lastUpdated DateTime @default(now())
   shop        Shop
@@ -53,7 +53,7 @@ model record {
 
 model BillHistory {
   id                   Int            @id @default(autoincrement())
-  updatedStocks        UpdatedStock[]
+  updatedStocks        UpdatedStock[] @relation("BillHistoryUpdatedStocks") 
   pdfDate              DateTime       @db.Timestamp(3)
   totalSale            Int?
   upiPayment           Int?
@@ -67,20 +67,20 @@ model BillHistory {
   rateDiff             Int?
   transportation       Int?
   rent                 Int?
-  totalPaymentReceived Int?
+  totalCashReceived Int?
   date                 DateTime       @default(now()) @db.Timestamp(3)
 }
 
 model UpdatedStock {
-  id            Int      @id @default(autoincrement())
-  billHistory   BillHistory @relation(fields: [id], references: [id])
+  ids            Int      @id @default(autoincrement())
+  id             Int
+  billHistoryId Int
+  billHistory   BillHistory @relation("BillHistoryUpdatedStocks",fields: [billHistoryId], references: [id])
   product       String
   size          Int
   lastQuantity  Int
   quantity      Int
   price         Int
-  totalSale     Int
-  newQuantity   Int
   lastUpdated   DateTime    @db.Timestamp(3)
-  Shop          String
+  shop          String
 }
