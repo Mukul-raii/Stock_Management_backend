@@ -6,7 +6,9 @@ import Stock from "./routes/stock";
 import bodyParser from "body-parser";
 import cors from 'cors'
 
-app.use(cors())
+app.use(cors({
+  origin: ["http://localhost:3001", "https://stock-management-frontend-seven.vercel.app"]
+}))
 
 app.use(bodyParser());
 app.use("/api/v1/record", Record);

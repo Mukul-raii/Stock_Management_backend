@@ -38,7 +38,7 @@ export const addNewStocks = async (
         product: product,
         size: size,
         price: price,
-        shop: shop,
+        shop: shop as Shop,
       },
     });
 
