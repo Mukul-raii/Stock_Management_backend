@@ -7,7 +7,6 @@
     "build": "tsc -p .",
     "build:live": "nodemon --watch 'src/**/*.ts' --exec \"ts-node -r tsconfig-paths/register\" src/index.ts",
     "migrate": "prisma migrate deploy",
-    "vercel-build": "prisma migrate deploy && prisma generate",
     "postinstall": "prisma generate"
   },
   "keywords": [],
