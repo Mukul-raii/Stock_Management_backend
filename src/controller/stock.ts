@@ -73,7 +73,7 @@ export const updateStock = async (
       })
     );
 
-    res.status(200).json({});
+    res.status(200).json({message:"updated Succesfully"});
   } catch (error) {
     res.status(500).json(error);
   }
