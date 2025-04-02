@@ -44,7 +44,7 @@ model stock {
 model record {
   id            Int      @id @default(autoincrement())
   recordName    String
-  shopName      Shop
+  shopName      Shop?
   message       String
   amount        Int
   date          DateTime @default(now())
