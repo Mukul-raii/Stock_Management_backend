@@ -51,31 +51,38 @@ model record {
   paymentMethod String
 }
 
+model Bank {
+  id          Int     @id @default(autoincrement())
+  amount      Int
+  bank        String
+  transaction String
+}
+
 model BillHistory {
-  id                   Int            @id @default(autoincrement())
-  updatedStocks        UpdatedStock[] @relation("BillHistoryUpdatedStocks") 
-  pdfDate              DateTime       @db.Timestamp(3)
-  totalSale            Int?
-  upiPayment           Int?
-  discount             Int?
-  breakageCash         Int?
-  canteenCash          Int?
-  totalDesiSale        Int?
-  totalBeerSale        Int?
-  salary               Int?
-  shop                 Shop
-  rateDiff             Int?
-  transportation       Int?
-  rent                 Int?
+  id                Int            @id @default(autoincrement())
+  updatedStocks     UpdatedStock[] @relation("BillHistoryUpdatedStocks")
+  pdfDate           DateTime       @db.Timestamp(3)
+  totalSale         Int?
+  upiPayment        Int?
+  discount          Int?
+  breakageCash      Int?
+  canteenCash       Int?
+  totalDesiSale     Int?
+  totalBeerSale     Int?
+  salary            Int?
+  shop              Shop
+  rateDiff          Int?
+  transportation    Int?
+  rent              Int?
   totalCashReceived Int?
-  date                 DateTime       @default(now()) @db.Timestamp(3)
+  date              DateTime       @default(now()) @db.Timestamp(3)
 }
 
 model UpdatedStock {
-  ids            Int      @id @default(autoincrement())
-  id             Int
+  ids           Int         @id @default(autoincrement())
+  id            Int
   billHistoryId Int
-  billHistory   BillHistory @relation("BillHistoryUpdatedStocks",fields: [billHistoryId], references: [id])
+  billHistory   BillHistory @relation("BillHistoryUpdatedStocks", fields: [billHistoryId], references: [id])
   product       String
   size          Int
   lastQuantity  Int

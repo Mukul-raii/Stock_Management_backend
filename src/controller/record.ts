@@ -56,3 +56,28 @@ export const getAllRecords = async (req: Request, res: Response): Promise<void> 
     });
   }
 };
+
+
+
+export const bank_transaction = async (req: Request, res: Response): Promise<void> => {
+  const { amount, transactionType, selectedAccount } = req.body;
+console.log("trying ");
+
+  try {
+    const result = await prisma.bank.create({
+      data:{
+        amount:parseInt(amount),
+        transaction : transactionType,
+        bank:selectedAccount
+      }
+    })
+    console.log("succesffll created ",result);
+    
+    res.status(200).json({message:"success"})
+  }
+  catch(error){
+    console.log(error);
+    res.status(500).json({error:"Internal Server Error"})
+  }}
+
+
