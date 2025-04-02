@@ -8,9 +8,9 @@ import cors from 'cors'
 
 app.use(cors())
 app.use(bodyParser());
-app.use("/record", Record);
-app.use("/billhistory", BillHistory);
-app.use("/stock", Stock);
+app.use("api/v1/record", Record);
+app.use("api/v1/billhistory", BillHistory);
+app.use("api/v1/stock", Stock);
 
 app.get("/", (req: express.Request, res: express.Response) => {
   console.log("hello");
