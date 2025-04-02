@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
+    "@vercel/node": "^5.1.14",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "ts-node": "^10.9.2",
