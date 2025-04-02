@@ -99,31 +99,58 @@ export const deleteStock = async (
 export const transferStock = async (
   req: Request,
   res: Response
-): Promise<Response> => {
+): Promise<void> => {
   try {
-    const { stockId, fromShop, toShop, transferQuantity } = req.body;
-    let stock = await prisma.stock.findUnique({
-      where: {
-        id: parseInt(stockId),
-        shop: fromShop,
-      },
-    });
+    const { shopName,newQuantities } = req.body;
+    let transferedStock:any[]= []
 
-    if (!stock) {
-      return res.status(401).json({ message: "Stock not found" });
-    }
-    if (stock.quantity && stock.quantity < transferQuantity) {
-      return res.status(401).json({ message: "Not enough stock" });
-    }
+     await Promise.all(
+      Object.entries(newQuantities).map(async ([id, quantity]) => {
+        
+        const fromShop=  await prisma.stock.update({
+          where: {
+            id: Number(id), // Convert string key to number
+            shop: shopName
+            },
+            data: {
+            quantity: {
+              decrement: Number(quantity) // Use Prisma's increment operation
+            }}
+        })
+         transferedStock.push({...fromShop,Transferedquantity:quantity})
+      })
+    );
 
-    await prisma.stock.update({
-      where: { id: stock.id },
-      data: {
-        quantity: stock.quantity ? stock.quantity - transferQuantity :  null
-      },
-    });
-    return res.json({ message: "Stock updated successfully" });
+
+    
+    const toShopUpdates = await Promise.all(
+      transferedStock.map(async(item)=>{
+        const transferToShop = item.shop ==="Amariya"? "Vamanpuri":"Amariya"
+        if(item.Transferedquantity !== undefined){
+        const updatedStock = await prisma.stock.updateMany({
+          where: {
+              product:item.product,
+              size:item.size,
+              shop :transferToShop 
+            },
+            data:{
+              quantity:{
+                increment:Number(item.Transferedquantity)
+              }
+            }
+        })
+        return updatedStock
+      }
+      }))
+
+
+
+
+
+     res.status(200).json({ message: "Stock updated successfully" ,transferedStock,   toShop: toShopUpdates,});
   } catch (error) {
-    return res.status(500).json(error);
+    console.log(error);
+    
+     res.status(500).json(error);
   }
 };
