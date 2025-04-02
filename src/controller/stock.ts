@@ -38,6 +38,7 @@ export const addNewStocks = async (
         product: product,
         size: size,
         price: price,
+        quantity: 0,
         shop: shop as Shop,
       },
     });
@@ -66,7 +67,7 @@ export const updateStock = async (
             },
             data: {
             quantity: {
-              increment: Number(quantity) // Use Prisma's increment operation
+              increment: Number(quantity)  // Use Prisma's increment operation
             }
           }
         });
