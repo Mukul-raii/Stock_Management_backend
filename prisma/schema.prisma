@@ -55,6 +55,7 @@ model Bank {
   id          Int     @id @default(autoincrement())
   amount      Int
   bank        String
+  message     String?
   transaction String
 }
 

@@ -5,8 +5,6 @@ import * as e from "express";
 const prisma = new PrismaClient();
 
 export const generateBillHistory = async (req: Request, res: Response): Promise<void> => {
-  console.log(req.body);
-  
   const {
     stockData,
     date,
@@ -38,10 +36,8 @@ export const generateBillHistory = async (req: Request, res: Response): Promise<
           quantity:stock.lastQuantity
         }
       })
-      
     })
 
-    
 
     const result = await prisma.billHistory.create({
       data: {
