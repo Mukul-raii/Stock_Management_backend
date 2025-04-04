@@ -166,8 +166,8 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
     const totalCash=content.TotalCash.Amariya.totalCashReceived+content.TotalCash.Vamanpuri.totalCashReceived-cashPaymentByRecord + (lastYearBalance?.amount || 0 )
 
     const upiPayment = Object.values(content.TotalCash).reduce((sum,recordTypes)=> sum + (recordTypes.totalUpiPayment || 0),0)
-   const bankPaymentByRecord = Object.values(content.Record).reduce((sum, recordTypes) => sum + (recordTypes.CurrentBank || 0), 0);
-   const totalBankBalance = Object.values(content.BankTransactions).reduce((sum, bankTransactions) => sum + (bankTransactions.credit || 0) - (bankTransactions.debit || 0), 0) -bankPaymentByRecord + upiPayment;
+    const bankPaymentByRecord = Object.values(content.Record).reduce((sum, recordTypes) => sum + (recordTypes.CurrentBank || 0), 0);
+    const totalBankBalance = Object.values(content.BankTransactions).reduce((sum, bankTransactions) => sum + (bankTransactions.credit || 0) - (bankTransactions.debit || 0), 0) - bankPaymentByRecord + upiPayment;
 
    content.MoneyCalculation.TotalBank=totalBankBalance
    content.MoneyCalculation.TotalCash=totalCash
