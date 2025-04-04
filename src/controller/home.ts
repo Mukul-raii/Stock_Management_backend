@@ -27,6 +27,10 @@ interface ContentData {
     TotalCash: Record<string, ShopTotals>;
     Record: Record<RecordType, RecordTotals>;
     BankTransactions: Record<string, BankTotals>;
+    MoneyCalculation:{
+        TotalCash: number;
+        TotalBank: number;
+    }
 }
 
 const TypeRecordProps = [
@@ -61,7 +65,11 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
         BankTransactions: bankAccounts.reduce((acc, bank) => {
             acc[bank] = { credit: 0, debit: 0 };
             return acc;
-        }, {} as Record<string, BankTotals>)
+        }, {} as Record<string, BankTotals>),
+        MoneyCalculation:{
+            TotalCash:0,
+            TotalBank:0
+        }
     };
 
     // Aggregate BillHistory data for each shop
@@ -143,6 +151,29 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
             content.BankTransactions[bank][transaction] = amount;
         }
     }
+
+
+    const lastYearBalance = await prisma.bank.findFirst({
+        where:{
+            bank:"Cash",
+            transaction:"credit"
+        }
+    })
+    
+
+    
+    const cashPaymentByRecord= Object.values(content.Record).reduce((sum,recordTypes)=> sum+ (recordTypes.Cash || 0),0)
+    const totalCash=content.TotalCash.Amariya.totalCashReceived+content.TotalCash.Vamanpuri.totalCashReceived-cashPaymentByRecord + (lastYearBalance?.amount || 0 )
+
+    const upiPayment = Object.values(content.TotalCash).reduce((sum,recordTypes)=> sum + (recordTypes.totalUpiPayment || 0),0)
+   const bankPaymentByRecord = Object.values(content.Record).reduce((sum, recordTypes) => sum + (recordTypes.CurrentBank || 0), 0);
+   const totalBankBalance = Object.values(content.BankTransactions).reduce((sum, bankTransactions) => sum + (bankTransactions.credit || 0) - (bankTransactions.debit || 0), 0) -bankPaymentByRecord + upiPayment;
+
+   content.MoneyCalculation.TotalBank=totalBankBalance
+   content.MoneyCalculation.TotalCash=totalCash
+    
+    
+
 
     res.status(200).json(content);
 }
