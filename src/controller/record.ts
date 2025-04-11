@@ -60,7 +60,7 @@ export const getAllRecords = async (req: Request, res: Response): Promise<void> 
 
 
 export const bank_transaction = async (req: Request, res: Response): Promise<void> => {
-  const { amount, transactionType, selectedAccount } = req.body;
+  const { amount, transactionType, selectedAccount,paymentMethod,message } = req.body;
 console.log("trying ");
 
   try {
@@ -68,7 +68,9 @@ console.log("trying ");
       data:{
         amount:parseInt(amount),
         transaction : transactionType,
-        bank:selectedAccount
+        bank:selectedAccount,
+        paymentMethod,
+        message
       }
     })
     console.log("succesffll created ",result);
@@ -81,3 +83,17 @@ console.log("trying ");
   }}
 
 
+  export const getAllBankTransaction = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await prisma.bank.findMany({
+        orderBy: { id:'asc' },
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error fetching records:", error);
+      res.status(500).json({ 
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  };

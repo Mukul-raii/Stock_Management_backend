@@ -52,11 +52,12 @@ model record {
 }
 
 model Bank {
-  id          Int     @id @default(autoincrement())
-  amount      Int
-  bank        String
-  transaction String
-  message String?
+  id            Int     @id @default(autoincrement())
+  amount        Int
+  bank          String
+  transaction   String
+  paymentMethod String?
+  message       String?
 }
 
 model BillHistory {
