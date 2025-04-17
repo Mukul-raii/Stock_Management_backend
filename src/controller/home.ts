@@ -22,6 +22,13 @@ interface BankTotals {
     credit: number;
     debit: number;
 }
+interface PaymentMethodAggregation {
+    paymentMethod: string | null;
+    transaction: string;
+    _sum: {
+      amount: number | null;
+    };
+  }
 
 interface ContentData {
     TotalCash: Record<string, ShopTotals>;
@@ -31,6 +38,7 @@ interface ContentData {
         TotalCash: number;
         TotalBank: number;
     }
+    paymentMethodAgg:PaymentMethodAggregation[]
 }
 
 const TypeRecordProps = [
@@ -69,7 +77,8 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
         MoneyCalculation:{
             TotalCash:0,
             TotalBank:0
-        }
+        },
+        paymentMethodAgg:[]
     };
 
     // Aggregate BillHistory data for each shop
@@ -140,6 +149,8 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
         }
     });
 
+    
+
     // Process bank transaction aggregations
     for (const agg of bankAggregations) {
         const bank = agg.bank;
@@ -152,7 +163,11 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
         }
     }
 
-
+    const paymentMethodAgge = await prisma.bank.groupBy({
+        by:['paymentMethod','transaction'],
+        _sum:{amount:true}
+    })
+    
     const lastYearBalance = await prisma.bank.findFirst({
         where:{
             bank:"Cash",
@@ -160,17 +175,19 @@ export const HomeProperties = async (req: Request, res: Response): Promise<void>
         }
     })
     
+    const bankPaymentByCash=paymentMethodAgge.filter((agg)=>agg.paymentMethod==="By Cash" && agg.transaction==="credit").reduce((sum,recordTypes)=> sum+ (recordTypes._sum.amount || 0),0)
 
     
     const cashPaymentByRecord= Object.values(content.Record).reduce((sum,recordTypes)=> sum+ (recordTypes.Cash || 0),0)
-    const totalCash=content.TotalCash.Amariya.totalCashReceived+content.TotalCash.Vamanpuri.totalCashReceived-cashPaymentByRecord + (lastYearBalance?.amount || 0 )
-
+    const totalCash=content.TotalCash.Amariya.totalCashReceived+content.TotalCash.Vamanpuri.totalCashReceived-cashPaymentByRecord + (lastYearBalance?.amount || 0 ) -bankPaymentByCash
+    
     const upiPayment = Object.values(content.TotalCash).reduce((sum,recordTypes)=> sum + (recordTypes.totalUpiPayment || 0),0)
     const bankPaymentByRecord = Object.values(content.Record).reduce((sum, recordTypes) => sum + (recordTypes.CurrentBank || 0), 0);
     const totalBankBalance = Object.values(content.BankTransactions).reduce((sum, bankTransactions) => sum + (bankTransactions.credit || 0) - (bankTransactions.debit || 0), 0) - bankPaymentByRecord + upiPayment;
-
+    
    content.MoneyCalculation.TotalBank=totalBankBalance
    content.MoneyCalculation.TotalCash=totalCash
+   content.paymentMethodAgg=paymentMethodAgge
     
     
 
