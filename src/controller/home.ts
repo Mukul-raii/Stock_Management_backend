@@ -41,6 +41,7 @@ interface ContentData {
   };
   paymentMethodAgg: PaymentMethodAggregation[];
   companyRecords:object
+  stockTotalCost:{}
 }
 
 const TypeRecordProps = [
@@ -101,7 +102,8 @@ export const HomeProperties = async (
       TotalBank: 0,
     },
     paymentMethodAgg: [],
-    companyRecords:{}
+    companyRecords:{},
+    stockTotalCost:[]
   };
 
   // Aggregate BillHistory data for each shop
@@ -278,6 +280,17 @@ export const HomeProperties = async (
   }
   const companiesRecords= aggregateCompanyPayment(companyPaymentRecord)
   content.companyRecords=companiesRecords
+
+
+  const StockData= await prisma.stock.findMany()
+  
+  const stock: { shop: string; TotalPrice: number }[] = StockData.map((item) => ({
+    shop: item.shop,
+    TotalPrice: item.price * (item.quantity || 0),
+  }));
+  
+  content.stockTotalCost=stock
+  
   
   res.status(200).json(content);
 };
