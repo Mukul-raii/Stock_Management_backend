@@ -60,8 +60,7 @@ export const getAllRecords = async (req: Request, res: Response): Promise<void> 
 
 
 export const bank_transaction = async (req: Request, res: Response): Promise<void> => {
-  const { amount, transactionType, selectedAccount,paymentMethod,message } = req.body;
-console.log("trying ");
+  const { amount, transactionType, selectedAccount,paymentMethod,message,structuredDate } = req.body;
 
   try {
     const result = await prisma.bank.create({
@@ -70,10 +69,10 @@ console.log("trying ");
         transaction : transactionType,
         bank:selectedAccount,
         paymentMethod,
-        message
+        message,
+        date:structuredDate
       }
     })
-    console.log("succesffll created ",result);
     
     res.status(200).json({message:"success"})
   }

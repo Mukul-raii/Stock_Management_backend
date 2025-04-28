@@ -58,6 +58,7 @@ model Bank {
   transaction   String
   paymentMethod String?
   message       String?
+  date          DateTime?
 }
 
 model BillHistory {
