@@ -288,10 +288,18 @@ export const HomeProperties = async (
 
     let groupedMessageVariants: Record<string, string[]>;
     try {
-      const content = response.text; // or response.candidates[0].content.parts[0].text if needed
-      groupedMessageVariants = JSON.parse(content || "");
+      let content = response.text || ""; // or response.candidates[0].content.parts[0].text if needed
+
+      // Clean the response - remove markdown code blocks if present
+      content = content
+        .replace(/```json\s*/g, "")
+        .replace(/```\s*$/g, "")
+        .trim();
+
+      groupedMessageVariants = JSON.parse(content);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      console.error("AI Response:", response.text);
       throw new Error("Failed to parse AI response as JSON: " + errorMessage);
     }
 
