@@ -286,12 +286,13 @@ export const HomeProperties = async (
     });
     console.log("response of ai ", response);
 
-    let groupedMessageVariants;
+    let groupedMessageVariants: Record<string, string[]>;
     try {
       const content = response.text; // or response.candidates[0].content.parts[0].text if needed
       groupedMessageVariants = JSON.parse(content || "");
     } catch (e) {
-      throw new Error("Failed to parse AI response as JSON: " + e.message);
+      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      throw new Error("Failed to parse AI response as JSON: " + errorMessage);
     }
 
     for (const [groupLabel, messageVariants] of Object.entries(
@@ -301,8 +302,10 @@ export const HomeProperties = async (
 
       for (const record of companyPaymentRecord) {
         if (
+          Array.isArray(messageVariants) &&
           messageVariants.some(
-            (variant) => record.message.toLowerCase() === variant.toLowerCase()
+            (variant: string) =>
+              record.message.toLowerCase() === variant.toLowerCase()
           )
         ) {
           groups[groupLabel].records.push(record);
@@ -310,12 +313,12 @@ export const HomeProperties = async (
         }
       }
     }
-console.log("groups ",groups);
+    console.log("groups ", groups);
 
     return groups;
   }
 
-  const companiesRecords = aggregateCompanyPayment(companyPaymentRecord);
+  const companiesRecords = await aggregateCompanyPayment(companyPaymentRecord);
   content.companyRecords = companiesRecords;
 
   const StockData = await prisma.stock.findMany();
