@@ -253,7 +253,7 @@ export const HomeProperties = async (
 
   const RecordsMessage: string[] = [];
   companyPaymentRecord.forEach((record) => {
-    RecordsMessage.push(record.recordName);
+    RecordsMessage.push(record.message);
   });
   async function aggregateCompanyPayment(
     companyPaymentRecord: {
@@ -278,11 +278,15 @@ export const HomeProperties = async (
       model: "gemini-2.0-flash",
       contents: `
     You are given a list of stock management record messages. These messages may have spelling mistakes or grammatical differences but refer to the same or similar information.
-    Your task is to group similar messages together — even if they have slight spelling or phrasing variations. Each group should be represented as a JSON object where the key is a representative or canonical message, and the value is a list of variations.
+    Your task is to group similar messages together — even if they have slight spelling or phrasing variations. Each group should be represented as a JSON object where the key is a representative or canonical name (like company/person name), and the value is a list of message variations.
+    
     For example:
-    {"Kartik salary": ["kartit salary","salary of kartik jun","salary of kartik jan" ]}
-      Group the following messages:
-      ${RecordsMessage}`,
+    {"mukul total salary ": ["mukul salary", "salary of mukul jun", "salary of mukil jan"], "kartik": ["kartik salary", "kartit salary"]}
+    
+    Only return valid JSON without any markdown formatting or explanation.
+    
+    Group the following messages:
+    ${JSON.stringify(RecordsMessage)}`,
     });
     console.log("response of ai ", response);
 
