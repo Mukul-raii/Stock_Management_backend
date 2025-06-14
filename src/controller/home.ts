@@ -1,5 +1,6 @@
 import { PrismaClient, Shop } from "@prisma/client";
 import { Request, Response } from "express";
+import { GoogleGenAI } from "@google/genai";
 
 const prisma = new PrismaClient();
 
@@ -30,7 +31,6 @@ interface PaymentMethodAggregation {
   };
 }
 
-
 interface ContentData {
   TotalCash: Record<string, ShopTotals>;
   Record: Record<RecordType, RecordTotals>;
@@ -40,8 +40,8 @@ interface ContentData {
     TotalBank: number;
   };
   paymentMethodAgg: PaymentMethodAggregation[];
-  companyRecords:object
-  stockTotalCost:{}
+  companyRecords: object;
+  stockTotalCost: {};
 }
 
 const TypeRecordProps = [
@@ -102,8 +102,8 @@ export const HomeProperties = async (
       TotalBank: 0,
     },
     paymentMethodAgg: [],
-    companyRecords:{},
-    stockTotalCost:[]
+    companyRecords: {},
+    stockTotalCost: [],
   };
 
   // Aggregate BillHistory data for each shop
@@ -250,47 +250,84 @@ export const HomeProperties = async (
       },
     },
   });
-  function aggregateCompanyPayment(companyPaymentRecord: {
-    id: number,
-    recordName: string,
-    shopName: string | null,
-    message: string,
-    amount: number,
-    date: Date,
-    paymentMethod: string
-  }[]) {
-    const groups: Record<string, { records: typeof companyPaymentRecord, totalAmount: number }> = {};
 
-    for (const record of companyPaymentRecord) {
-      const words = record.message
-        .replace(/^\d+\s*-?\s*/, "")
-        .trim()
-        .split(/\s+/);
-      const keyword = words[0]?.toLowerCase();
+  const RecordsMessage: string[] = [];
+  companyPaymentRecord.forEach((record) => {
+    RecordsMessage.push(record.recordName);
+  });
+  async function aggregateCompanyPayment(
+    companyPaymentRecord: {
+      id: number;
+      recordName: string;
+      shopName: string | null;
+      message: string;
+      amount: number;
+      date: Date;
+      paymentMethod: string;
+    }[]
+  ) {
+    const groups: Record<
+      string,
+      { records: typeof companyPaymentRecord; totalAmount: number }
+    > = {};
 
-      if (keyword) {
-        if (!groups[keyword]) {
-          groups[keyword] = { records: [], totalAmount: 0 };
+    const ai = new GoogleGenAI({ apiKey: process.env.GENAI });
+    console.log("records messages ", RecordsMessage);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: `
+    You are given a list of stock management record messages. These messages may have spelling mistakes or grammatical differences but refer to the same or similar information.
+    Your task is to group similar messages together — even if they have slight spelling or phrasing variations. Each group should be represented as a JSON object where the key is a representative or canonical message, and the value is a list of variations.
+    For example:
+    {"Kartik salary": ["kartit salary","salary of kartik jun","salary of kartik jan" ]}
+      Group the following messages:
+      ${RecordsMessage}`,
+    });
+    console.log("response of ai ", response);
+
+    let groupedMessageVariants;
+    try {
+      const content = response.text; // or response.candidates[0].content.parts[0].text if needed
+      groupedMessageVariants = JSON.parse(content || "");
+    } catch (e) {
+      throw new Error("Failed to parse AI response as JSON: " + e.message);
+    }
+
+    for (const [groupLabel, messageVariants] of Object.entries(
+      groupedMessageVariants
+    )) {
+      groups[groupLabel] = { records: [], totalAmount: 0 };
+
+      for (const record of companyPaymentRecord) {
+        if (
+          messageVariants.some(
+            (variant) => record.message.toLowerCase() === variant.toLowerCase()
+          )
+        ) {
+          groups[groupLabel].records.push(record);
+          groups[groupLabel].totalAmount += record.amount;
         }
-        groups[keyword].records.push(record);
-        groups[keyword].totalAmount += record.amount;
       }
     }
-  return groups
+console.log("groups ",groups);
+
+    return groups;
   }
-  const companiesRecords= aggregateCompanyPayment(companyPaymentRecord)
-  content.companyRecords=companiesRecords
 
+  const companiesRecords = aggregateCompanyPayment(companyPaymentRecord);
+  content.companyRecords = companiesRecords;
 
-  const StockData= await prisma.stock.findMany()
-  
-  const stock: { shop: string; TotalPrice: number }[] = StockData.map((item) => ({
-    shop: item.shop,
-    TotalPrice: item.price * (item.quantity || 0),
-  }));
-  
-  content.stockTotalCost=stock
-  
-  
+  const StockData = await prisma.stock.findMany();
+
+  const stock: { shop: string; TotalPrice: number }[] = StockData.map(
+    (item) => ({
+      shop: item.shop,
+      TotalPrice: item.price * (item.quantity || 0),
+    })
+  );
+
+  content.stockTotalCost = stock;
+
   res.status(200).json(content);
 };
