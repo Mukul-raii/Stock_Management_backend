@@ -78,6 +78,7 @@ model BillHistory {
   transportation    Int?
   rent              Int?
   totalCashReceived Int?
+  records           Json?
   date              DateTime       @default(now()) @db.Timestamp(3)
 }
 
