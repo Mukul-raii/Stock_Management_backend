@@ -259,7 +259,7 @@ export const getBillHistoryPDF = async (
     }
 
     // Column layout (fits exactly within table.width)
-    const widths = { product: 170, size: 40, open: 64, close: 76, sold: 56, price: 62, total: 55 };
+    const widths = { product: 120, size: 40, open: 64, close: 76, sold: 56, price: 62, total: 55 };
     const gutter = 6; // small spacing between columns
     let cx = table.x + 8; // left padding for text
     const col = {
