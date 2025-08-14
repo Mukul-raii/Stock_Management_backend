@@ -242,8 +242,8 @@ export const getBillHistoryPDF = async (
     let rows: Row[] = [];
     if (bill.updatedStocks && bill.updatedStocks.length > 0) {
       rows = bill.updatedStocks.map(s => {
-        const open = Number(s.quantity ?? 0);
-        const close = Number(s.lastQuantity ?? 0);
+        const open = Number(s.quantity ?? 0); // opening stock before sale
+        const close = Number(s.lastQuantity ?? 0); // closing stock after sale
         const sold = Math.max(0, open - close);
         const price = Number(s.price ?? 0);
         return {
@@ -258,29 +258,19 @@ export const getBillHistoryPDF = async (
       });
     }
 
-    // Column layout
+    // Column layout (fits exactly within table.width)
+    const widths = { product: 170, size: 40, open: 64, close: 76, sold: 56, price: 62, total: 55 };
+    const gutter = 6; // small spacing between columns
+    let cx = table.x + 8; // left padding for text
     const col = {
-      product: { x: table.x + 8, w: 190, align: "left" as const },
-      size: { x: table.x + 210, w: 50, align: "right" as const },
-      open: { x: table.x + 270, w: 70, align: "right" as const },
-      close: { x: table.x + 350, w: 80, align: "right" as const },
-      sold: { x: table.x + 440, w: 60, align: "right" as const },
-      price: { x: table.x + 510, w: 60, align: "right" as const },
-      total: { x: table.x + 580, w: 70, align: "right" as const },
-    };
-
-    // Clamp table width if needed
-    const tableRight = table.x + table.width;
-    const lastColRight = col.total.x + col.total.w + 8;
-    const overflow = lastColRight - tableRight;
-    if (overflow > 0) {
-      // Shift columns left uniformly
-      const shift = overflow;
-      (Object.keys(col) as Array<keyof typeof col>).forEach(k => {
-        // @ts-ignore runtime layout only
-        col[k].x -= shift;
-      });
-    }
+      product: { x: cx, w: widths.product, align: "left" as const },
+      size: { x: (cx += widths.product + gutter), w: widths.size, align: "right" as const },
+      open: { x: (cx += widths.size + gutter), w: widths.open, align: "right" as const },
+      close: { x: (cx += widths.open + gutter), w: widths.close, align: "right" as const },
+      sold: { x: (cx += widths.close + gutter), w: widths.sold, align: "right" as const },
+      price: { x: (cx += widths.sold + gutter), w: widths.price, align: "right" as const },
+      total: { x: (cx += widths.price + gutter), w: widths.total, align: "right" as const },
+    } as const;
 
     // Function to draw header row
     const drawHeader = (y: number) => {
