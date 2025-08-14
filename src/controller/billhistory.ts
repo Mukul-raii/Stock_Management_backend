@@ -183,11 +183,13 @@ export const getBillHistoryPDF = async (
   res: Response
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid bill history id" });
+    // Enforce strictly numeric bill id; prevents accidental parsing like "67eb96..." -> 67
+    const idParam = req.params.id;
+    if (!/^\d+$/.test(idParam)) {
+      res.status(400).json({ error: "Invalid bill history id: must be numeric" });
       return;
     }
+    const id = parseInt(idParam, 10);
 
     const bill = await prisma.billHistory.findUnique({
       where: { id },
@@ -240,13 +242,13 @@ export const getBillHistoryPDF = async (
     let rows: Row[] = [];
     if (bill.updatedStocks && bill.updatedStocks.length > 0) {
       rows = bill.updatedStocks.map(s => {
-        const open = Number(s.lastQuantity || 0);
-        const close = Number(s.quantity || 0);
+        const open = Number(s.quantity ?? 0);
+        const close = Number(s.lastQuantity ?? 0);
         const sold = Math.max(0, open - close);
-        const price = Number(s.price || 0);
+        const price = Number(s.price ?? 0);
         return {
           product: s.product,
-          size: Number(s.size || 0),
+          size: Number(s.size ?? 0),
           open,
           close,
           sold,
@@ -254,23 +256,6 @@ export const getBillHistoryPDF = async (
           total: sold * price,
         };
       });
-    } else {
-      rows = [
-        { product: "budwisor", size: 650, open: 184, close: 176, sold: 8, price: 245, total: 1960.0 },
-        { product: "budwisor", size: 500, open: 240, close: 211, sold: 29, price: 185, total: 5365.0 },
-        { product: "tuborg", size: 650, open: 240, close: 232, sold: 8, price: 195, total: 1560.0 },
-        { product: "tuborg", size: 500, open: 407, close: 364, sold: 43, price: 150, total: 6450.0 },
-        { product: "kingfisher", size: 650, open: 65, close: 57, sold: 8, price: 195, total: 1560.0 },
-        { product: "kingfisher", size: 500, open: 146, close: 139, sold: 7, price: 165, total: 1155.0 },
-        { product: "th. bolt", size: 650, open: 13, close: 10, sold: 3, price: 195, total: 585.0 },
-        { product: "th. bolt", size: 500, open: 84, close: 82, sold: 2, price: 150, total: 300.0 },
-        { product: "Godfather legendry", size: 650, open: 18, close: 17, sold: 1, price: 200, total: 200.0 },
-        { product: "Godfather legendry", size: 500, open: 28, close: 27, sold: 1, price: 155, total: 155.0 },
-        { product: "Hy. 5000", size: 650, open: 0, close: 0, sold: 0, price: 195, total: 0.0 },
-        { product: "Hy. 5000", size: 500, open: 0, close: 0, sold: 0, price: 155, total: 0.0 },
-        { product: "carls. elephant", size: 500, open: 0, close: 0, sold: 0, price: 165, total: 0.0 },
-        { product: "Godfather super", size: 650, open: 50, close: 47, sold: 3, price: 215, total: 645.0 },
-      ];
     }
 
     // Column layout
@@ -319,6 +304,12 @@ export const getBillHistoryPDF = async (
 
     // Draw rows
     let grandTotal = 0;
+    if (rows.length === 0) {
+      // If no stock updates found, draw an empty table header and a friendly note
+      doc.font("Helvetica").fontSize(10).fillColor("#666");
+      doc.text("No stock updates recorded for this bill.", table.x, y + 12, { width: table.width, align: "center" });
+    }
+
     rows.forEach((r, i) => {
       // Page break check (keep 3 rows margin at bottom)
       if (y + table.rowHeight > doc.page.height - 72) {
@@ -367,6 +358,73 @@ export const getBillHistoryPDF = async (
     doc.font("Helvetica-Bold").fontSize(11);
     doc.text("Grand Total", col.price.x - 10, y + 6, { width: col.price.w + col.sold.w, align: "right" });
     doc.text(currency(grandTotal), col.total.x, y + 6, { width: col.total.w, align: col.total.align });
+
+    // Summary section from Bill details (generated in generateBillHistory)
+    // Spacing before summary
+    y += table.rowHeight * 1.2;
+
+    const ensureSpace = (needed: number) => {
+      if (y + needed > doc.page.height - 72) {
+        doc.addPage();
+        y = table.y; // reset to table start on new page
+      }
+    };
+
+    // Draw Summary box background
+    const summaryItems: Array<{ label: string; value: string }> = [
+      { label: "Total Beer Sale", value: `₹ ${currency(bill.totalBeerSale ?? 0)}` },
+      { label: "Total Desi Sale", value: `₹ ${currency(bill.totalDesiSale ?? 0)}` },
+      { label: "Discount", value: `₹ ${currency(bill.discount ?? 0)}` },
+      { label: "Breakage Cash", value: `₹ ${currency(bill.breakageCash ?? 0)}` },
+      { label: "Canteen Cash", value: `₹ ${currency(bill.canteenCash ?? 0)}` },
+      { label: "Rent", value: `₹ ${currency(bill.rent ?? 0)}` },
+      { label: "Transportation", value: `₹ ${currency(bill.transportation ?? 0)}` },
+      { label: "Rate Difference", value: `₹ ${currency(bill.rateDiff ?? 0)}` },
+      { label: "UPI Payment", value: `₹ ${currency(bill.upiPayment ?? 0)}` },
+      { label: "Cash Received", value: `₹ ${currency(bill.totalCashReceived ?? 0)}` },
+      { label: "Total Cash (Reported)", value: `₹ ${currency(bill.totalSale ?? 0)}` },
+      { label: "Total (Computed)", value: `₹ ${currency(grandTotal)}` },
+    ];
+
+    // Two-column layout for summary
+    const colGap = 20;
+    const boxPadding = 10;
+    const colWidth = (table.width - colGap) / 2;
+    const leftColX = table.x;
+    const rightColX = table.x + colWidth + colGap;
+
+    // Title for the summary
+    ensureSpace(28 + (Math.ceil(summaryItems.length / 2) * 20) + boxPadding * 2);
+    doc.font("Helvetica-Bold").fontSize(12).fillColor("#000").text("Summary", leftColX, y, { width: table.width, align: "left" });
+    y += 16;
+
+    // Determine box height
+    const rowsPerCol = Math.ceil(summaryItems.length / 2);
+    const boxHeight = rowsPerCol * 20 + boxPadding * 2;
+
+    // Box background
+    doc.save();
+    doc.roundedRect(table.x, y - 6, table.width, boxHeight + 6, 6).fillOpacity(0.06).fill("#1976d2").fillOpacity(1);
+    doc.restore();
+
+    // Draw key-value rows
+    doc.font("Helvetica").fontSize(10).fillColor("#000");
+    const drawKV = (label: string, value: string, x: number, yy: number) => {
+      const labelWidth = colWidth * 0.6;
+      const valueWidth = colWidth * 0.4;
+      doc.font("Helvetica").fillColor("#333").text(label, x + boxPadding, yy, { width: labelWidth, align: "left" });
+      doc.font("Helvetica-Bold").fillColor("#000").text(value, x + boxPadding + labelWidth, yy, { width: valueWidth - boxPadding, align: "right" });
+    };
+
+    let yCursor = y + boxPadding;
+    summaryItems.slice(0, rowsPerCol).forEach((it, idx) => {
+      drawKV(it.label, it.value, leftColX, yCursor + idx * 20);
+    });
+    summaryItems.slice(rowsPerCol).forEach((it, idx) => {
+      drawKV(it.label, it.value, rightColX, yCursor + idx * 20);
+    });
+
+    y += boxHeight + 10;
 
     // Footer note
     doc.font("Helvetica").fontSize(9).fillColor("#666");
