@@ -1,9 +1,10 @@
-import { PrismaClient, Shop } from "@prisma/client";
+import { getAuth } from "@clerk/express";
+import {  Shop } from "@prisma/client";
 import { Request, Response } from "express";
 import * as e from "express";
 import PDFDocument from "pdfkit";
+import prisma from "../lib/prisma";
 
-const prisma = new PrismaClient();
 
 interface RecordData {
   recordType: string;
@@ -66,6 +67,14 @@ export const generateBillHistory = async (
   } = req.body;
 
   try {
+    const {userId} = getAuth(req)
+
+    if(!userId) {
+       res.status(401).json({ error: "Unauthorized" });
+       return;
+    }
+
+
     const stockUpdate = stockData.map(async (stock: StockData) => {
       const result = await prisma.stock.update({
         where: {
@@ -82,11 +91,13 @@ export const generateBillHistory = async (
     // Transform stockData to include required fields for UpdatedStock
     const updatedStocksData = stockData.map(stock => ({
       ...stock,
+      userId: userId,
       lastUpdated: stock.lastUpdated || new Date(),
     }));
 
     const result = await prisma.billHistory.create({
       data: {
+        userId: userId ,
         updatedStocks: { create: updatedStocksData },
         pdfDate: date,
         totalSale: totalCash,
@@ -117,10 +128,15 @@ export const getAllBillHistory = async (
   res: Response
 ): Promise<void> => {
   const { Shop } = req.query;
-
+  const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     const result = await prisma.billHistory.findMany({
       where: {
+        userId: userId,
         shop: Shop as Shop,
       },
       orderBy: {
@@ -144,12 +160,18 @@ export const getBillHistoryWithRecords = async (
   res: Response
 ): Promise<void> => {
   const { Shop, id } = req.query;
+   const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
 
   try {
     if (id) {
       // Get specific bill history by ID
       const result = await prisma.billHistory.findUnique({
         where: {
+          userId: userId,
           id: parseInt(id as string),
         },
         include: {
@@ -162,6 +184,7 @@ export const getBillHistoryWithRecords = async (
       const result = await prisma.billHistory.findMany({
         where: {
           shop: Shop as Shop,
+          userId: userId,
         },
         orderBy: {
           pdfDate: "desc",
@@ -182,6 +205,11 @@ export const getBillHistoryPDF = async (
   req: Request<{ id: string }>,
   res: Response
 ): Promise<void> => {
+   const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     // Enforce strictly numeric bill id; prevents accidental parsing like "67eb96..." -> 67
     const idParam = req.params.id;
@@ -192,7 +220,7 @@ export const getBillHistoryPDF = async (
     const id = parseInt(idParam, 10);
 
     const bill = await prisma.billHistory.findUnique({
-      where: { id },
+      where: { id ,userId: userId},
       include: { updatedStocks: true },
     });
 

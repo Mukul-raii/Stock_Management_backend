@@ -24,12 +24,14 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
+    "@clerk/express": "^1.7.24",
     "@prisma/client": "^6.5.0",
     "@types/pdfkit": "^0.17.2",
     "@vercel/node": "^5.1.14",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "pdfkit": "^0.17.1",
+    "svix": "^1.74.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0"
   }

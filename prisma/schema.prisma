@@ -24,15 +24,23 @@ enum User {
 }
 
 model user {
-  id       Int    @id @default(autoincrement())
-  name     String
-  userName String
-  password String
-  role     User
+  id             Int            @id @default(autoincrement())
+  name           String
+  userId         String         @unique
+  email          String
+  hashedPassword String?
+  role           User
+  stock          stock[]
+  record         record[]
+  Bank           Bank[]
+  BillHistory    BillHistory[]
+  UpdatedStock   UpdatedStock[]
 }
 
 model stock {
   id          Int      @id @default(autoincrement())
+  userId      String
+  user        user     @relation(fields: [userId], references: [userId])
   product     String
   size        Int
   quantity    Int?
@@ -43,6 +51,8 @@ model stock {
 
 model record {
   id            Int      @id @default(autoincrement())
+  userId        String
+  user          user     @relation(fields: [userId], references: [userId])
   recordName    String
   shopName      Shop?
   message       String
@@ -52,7 +62,9 @@ model record {
 }
 
 model Bank {
-  id            Int     @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
+  userId        String
+  user          user      @relation(fields: [userId], references: [userId])
   amount        Int
   bank          String
   transaction   String
@@ -63,6 +75,8 @@ model Bank {
 
 model BillHistory {
   id                Int            @id @default(autoincrement())
+  userId            String
+  user              user           @relation(fields: [userId], references: [userId])
   updatedStocks     UpdatedStock[] @relation("BillHistoryUpdatedStocks")
   pdfDate           DateTime       @db.Timestamp(3)
   totalSale         Int?
@@ -84,6 +98,8 @@ model BillHistory {
 
 model UpdatedStock {
   ids           Int         @id @default(autoincrement())
+  userId        String
+  user          user        @relation(fields: [userId], references: [userId])
   id            Int
   billHistoryId Int
   billHistory   BillHistory @relation("BillHistoryUpdatedStocks", fields: [billHistoryId], references: [id])

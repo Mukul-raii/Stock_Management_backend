@@ -1,7 +1,8 @@
+import { getAuth } from "@clerk/express";
 import { PrismaClient, Shop } from "@prisma/client";
 import { Request, Response } from "express";
+import prisma from "../lib/prisma";
 
-const prisma = new PrismaClient();
 
 interface ShopTotals {
   totalSale: number;
@@ -40,8 +41,8 @@ interface ContentData {
     TotalBank: number;
   };
   paymentMethodAgg: PaymentMethodAggregation[];
-  companyRecords:object
-  stockTotalCost:{}
+  companyRecords: object
+  stockTotalCost: {}
 }
 
 const TypeRecordProps = [
@@ -69,7 +70,11 @@ export const HomeProperties = async (
   res: Response
 ): Promise<void> => {
   const shops = ["Amariya", "Vamanpuri"];
-
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   let content: ContentData = {
     TotalCash: {
       Amariya: {
@@ -102,8 +107,8 @@ export const HomeProperties = async (
       TotalBank: 0,
     },
     paymentMethodAgg: [],
-    companyRecords:{},
-    stockTotalCost:[]
+    companyRecords: {},
+    stockTotalCost: []
   };
 
   // Aggregate BillHistory data for each shop
@@ -276,21 +281,21 @@ export const HomeProperties = async (
         groups[keyword].totalAmount += record.amount;
       }
     }
-  return groups
+    return groups
   }
-  const companiesRecords= aggregateCompanyPayment(companyPaymentRecord)
-  content.companyRecords=companiesRecords
+  const companiesRecords = aggregateCompanyPayment(companyPaymentRecord)
+  content.companyRecords = companiesRecords
 
 
-  const StockData= await prisma.stock.findMany()
-  
+  const StockData = await prisma.stock.findMany()
+
   const stock: { shop: string; TotalPrice: number }[] = StockData.map((item) => ({
     shop: item.shop,
     TotalPrice: item.price * (item.quantity || 0),
   }));
-  
-  content.stockTotalCost=stock
-  
-  
+
+  content.stockTotalCost = stock
+
+
   res.status(200).json(content);
 };

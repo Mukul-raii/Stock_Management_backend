@@ -1,7 +1,8 @@
+import { getAuth } from "@clerk/express";
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import prisma from "../lib/prisma";
 
-const prisma = new PrismaClient();
 
 
 
@@ -18,10 +19,15 @@ export const newRecord = async (req: Request, res: Response): Promise<void> => {
     date,
     selectedPaymentMethod,
   } = req.body;
-
+ const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     const result = await prisma.record.create({
       data: {
+        userId:userId,
         recordName:recordType,
         shopName: selectedShop?.trim() ? selectedShop : null,
         message,
@@ -30,7 +36,6 @@ export const newRecord = async (req: Request, res: Response): Promise<void> => {
         paymentMethod:selectedPaymentMethod,
       },
     });
-    console.log(result);
     
     res.status(200).json(result);
   } catch (error) {
@@ -43,8 +48,16 @@ export const newRecord = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const getAllRecords = async (req: Request, res: Response): Promise<void> => {
+   const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     const result = await prisma.record.findMany({
+      where:{
+        userId:userId,
+      },
       orderBy: { date: "desc" },
     });
     res.status(200).json(result);
@@ -61,10 +74,15 @@ export const getAllRecords = async (req: Request, res: Response): Promise<void> 
 
 export const bank_transaction = async (req: Request, res: Response): Promise<void> => {
   const { amount, transactionType, selectedAccount,paymentMethod,message,structuredDate } = req.body;
-
+ const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     const result = await prisma.bank.create({
       data:{
+        userId:userId,
         amount:parseInt(amount),
         transaction : transactionType,
         bank:selectedAccount,
@@ -83,8 +101,16 @@ export const bank_transaction = async (req: Request, res: Response): Promise<voi
 
 
   export const getAllBankTransaction = async (req: Request, res: Response): Promise<void> => {
+     const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
     try {
       const result = await prisma.bank.findMany({
+        where: {
+          userId: userId
+        },
         orderBy: { id:'asc' },
       });
       res.status(200).json(result);

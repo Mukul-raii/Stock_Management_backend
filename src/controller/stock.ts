@@ -1,8 +1,8 @@
+import { getAuth } from "@clerk/express";
 import { PrismaClient, Shop } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
-import * as e from "express";
+import prisma from "../lib/prisma";
 
-const prisma = new PrismaClient();
 
 export const getAllStocks = async (
   req: Request,
@@ -10,9 +10,14 @@ export const getAllStocks = async (
 ): Promise<void> => {
   try {
     const { Shop } = req.query;
-
+ const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
     const result = await prisma.stock.findMany({
       where: {
+        userId:userId,
         shop: Shop as Shop,
       },
       orderBy:{
@@ -31,10 +36,15 @@ export const addNewStocks = async (
   res: Response
 ): Promise<void> => {
   const { product, size, price, shop } = req.body;
-
+ const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     const result = await prisma.stock.create({
       data: {
+        userId:userId,
         product: product,
         size: size,
         price: price,
@@ -56,6 +66,11 @@ export const updateStock = async (
   res: Response
 ): Promise<void> => {
   const { shopName,newQuantities } = req.body;
+   const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   
   try {
     await Promise.all(
@@ -63,6 +78,7 @@ export const updateStock = async (
         await prisma.stock.update({
           where: {
             id: Number(id), // Convert string key to number
+            userId: userId,
             shop: shopName
             },
             data: {
@@ -85,10 +101,16 @@ export const deleteStock = async (
   res: Response
 ): Promise<void> => {
   const { id } = req.params;
+   const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     let result = await prisma.stock.delete({
       where: {
         id: parseInt(id),
+        userId: userId,
       },
     });
     res.status(200).json({ message: "Stock Deleted Successfully" });
@@ -103,6 +125,11 @@ export const transferStock = async (
 ): Promise<void> => {
   try {
     const { shopName,newQuantities } = req.body;
+     const { userId } = getAuth(req);
+  if(!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
     let transferedStock:any[]= []
 
      await Promise.all(
@@ -111,7 +138,8 @@ export const transferStock = async (
         const fromShop=  await prisma.stock.update({
           where: {
             id: Number(id), // Convert string key to number
-            shop: shopName
+            shop: shopName,
+            userId:userId
             },
             data: {
             quantity: {
@@ -130,6 +158,7 @@ export const transferStock = async (
         if(item.Transferedquantity !== undefined){
         const updatedStock = await prisma.stock.updateMany({
           where: {
+            userId:userId,
               product:item.product,
               size:item.size,
               shop :transferToShop 
