@@ -32,3 +32,5 @@ app.get("/", (req: express.Request, res: express.Response) => {
 app.listen("3000", () => {
   console.log("server is running ");
 });
+
+export default app; // ✅ must export default

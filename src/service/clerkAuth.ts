@@ -1,5 +1,4 @@
 import { Webhook } from "svix"; // official Clerk webhook verifier
-import { app } from "../index"; // Corrected import
 import { Request, RequestHandler, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 
