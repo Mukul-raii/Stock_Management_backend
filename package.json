@@ -29,6 +29,7 @@
     "@types/pdfkit": "^0.17.2",
     "@vercel/node": "^5.1.14",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
     "express": "^4.21.2",
     "pdfkit": "^0.17.1",
     "svix": "^1.74.1",
