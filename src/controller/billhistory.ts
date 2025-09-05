@@ -1,10 +1,9 @@
 import { getAuth } from "@clerk/express";
-import {  Shop } from "@prisma/client";
+import { Shop } from "@prisma/client";
 import { Request, Response } from "express";
 import * as e from "express";
 import PDFDocument from "pdfkit";
 import prisma from "../lib/prisma";
-
 
 interface RecordData {
   recordType: string;
@@ -67,13 +66,12 @@ export const generateBillHistory = async (
   } = req.body;
 
   try {
-    const {userId} = getAuth(req)
+    const { userId } = getAuth(req);
 
-    if(!userId) {
-       res.status(401).json({ error: "Unauthorized" });
-       return;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
     }
-
 
     const stockUpdate = stockData.map(async (stock: StockData) => {
       const result = await prisma.stock.update({
@@ -84,12 +82,13 @@ export const generateBillHistory = async (
         },
         data: {
           quantity: stock.lastQuantity,
+          lastUpdated: new Date(),
         },
       });
     });
 
     // Transform stockData to include required fields for UpdatedStock
-    const updatedStocksData = stockData.map(stock => ({
+    const updatedStocksData = stockData.map((stock) => ({
       ...stock,
       userId: userId,
       lastUpdated: stock.lastUpdated || new Date(),
@@ -97,7 +96,7 @@ export const generateBillHistory = async (
 
     const result = await prisma.billHistory.create({
       data: {
-        userId: userId ,
+        userId: userId,
         updatedStocks: { create: updatedStocksData },
         pdfDate: date,
         totalSale: totalCash,
@@ -129,7 +128,7 @@ export const getAllBillHistory = async (
 ): Promise<void> => {
   const { Shop } = req.query;
   const { userId } = getAuth(req);
-  if(!userId) {
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -160,8 +159,8 @@ export const getBillHistoryWithRecords = async (
   res: Response
 ): Promise<void> => {
   const { Shop, id } = req.query;
-   const { userId } = getAuth(req);
-  if(!userId) {
+  const { userId } = getAuth(req);
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -205,22 +204,19 @@ export const getBillHistoryPDF = async (
   req: Request<{ id: string }>,
   res: Response
 ): Promise<void> => {
-   const { userId } = getAuth(req);
-  if(!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
   try {
     // Enforce strictly numeric bill id; prevents accidental parsing like "67eb96..." -> 67
     const idParam = req.params.id;
     if (!/^\d+$/.test(idParam)) {
-      res.status(400).json({ error: "Invalid bill history id: must be numeric" });
+      res
+        .status(400)
+        .json({ error: "Invalid bill history id: must be numeric" });
       return;
     }
     const id = parseInt(idParam, 10);
 
     const bill = await prisma.billHistory.findUnique({
-      where: { id ,userId: userId},
+      where: { id },
       include: { updatedStocks: true },
     });
 
@@ -230,7 +226,9 @@ export const getBillHistoryPDF = async (
     }
 
     // Prepare response headers
-    const fileName = `bill_${bill.shop}_${new Date(bill.pdfDate).toISOString().split("T")[0]}_${bill.id}.pdf`;
+    const fileName = `bill_${bill.shop}_${
+      new Date(bill.pdfDate).toISOString().split("T")[0]
+    }_${bill.id}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
 
@@ -239,7 +237,12 @@ export const getBillHistoryPDF = async (
 
     // Helpers
     const currency = (n?: number | null) =>
-      typeof n === "number" && !isNaN(n) ? n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+      typeof n === "number" && !isNaN(n)
+        ? n.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : "0.00";
     const page = { width: 595.28, height: 841.89 }; // A4 in pt
     const table = {
       x: 36,
@@ -253,23 +256,45 @@ export const getBillHistoryPDF = async (
     };
 
     // Title
-    doc.font("Helvetica-Bold").fontSize(20).fillColor("#000").text("Om Ganeshay Namah", { align: "center" });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(20)
+      .fillColor("#000")
+      .text("Om Ganeshay Namah", { align: "center" });
     doc.moveDown(0.4);
     // Subtitle
-    doc.font("Helvetica").fontSize(12).text(`Shop Name: ${bill.shop}`, { align: "center" });
+    doc
+      .font("Helvetica")
+      .fontSize(12)
+      .text(`Shop Name: ${bill.shop}`, { align: "center" });
 
     // Invoice number (left) and date (right)
     const headerY = 120;
     doc.font("Helvetica").fontSize(10).fillColor("#000");
-    doc.text(`Invoice Number: ${bill.id}`, table.x, headerY, { width: table.width / 2, align: "left" });
-    doc.text(`Date: ${new Date(bill.pdfDate).toLocaleDateString("en-IN")}`,
-      table.x + table.width / 2, headerY, { width: table.width / 2, align: "right" });
+    doc.text(`Invoice Number: ${bill.id}`, table.x, headerY, {
+      width: table.width / 2,
+      align: "left",
+    });
+    doc.text(
+      `Date: ${new Date(bill.pdfDate).toLocaleDateString("en-IN")}`,
+      table.x + table.width / 2,
+      headerY,
+      { width: table.width / 2, align: "right" }
+    );
 
     // Build rows from data (fallback to sample rows if none)
-    type Row = { product: string; size: number; open: number; close: number; sold: number; price: number; total: number };
+    type Row = {
+      product: string;
+      size: number;
+      open: number;
+      close: number;
+      sold: number;
+      price: number;
+      total: number;
+    };
     let rows: Row[] = [];
     if (bill.updatedStocks && bill.updatedStocks.length > 0) {
-      rows = bill.updatedStocks.map(s => {
+      rows = bill.updatedStocks.map((s) => {
         const open = Number(s.quantity ?? 0); // opening stock before sale
         const close = Number(s.lastQuantity ?? 0); // closing stock after sale
         const sold = Math.max(0, open - close);
@@ -287,17 +312,49 @@ export const getBillHistoryPDF = async (
     }
 
     // Column layout (fits exactly within table.width)
-    const widths = { product: 120, size: 40, open: 64, close: 76, sold: 56, price: 62, total: 55 };
+    const widths = {
+      product: 120,
+      size: 40,
+      open: 64,
+      close: 76,
+      sold: 56,
+      price: 62,
+      total: 55,
+    };
     const gutter = 6; // small spacing between columns
     let cx = table.x + 8; // left padding for text
     const col = {
       product: { x: cx, w: widths.product, align: "left" as const },
-      size: { x: (cx += widths.product + gutter), w: widths.size, align: "right" as const },
-      open: { x: (cx += widths.size + gutter), w: widths.open, align: "right" as const },
-      close: { x: (cx += widths.open + gutter), w: widths.close, align: "right" as const },
-      sold: { x: (cx += widths.close + gutter), w: widths.sold, align: "right" as const },
-      price: { x: (cx += widths.sold + gutter), w: widths.price, align: "right" as const },
-      total: { x: (cx += widths.price + gutter), w: widths.total, align: "right" as const },
+      size: {
+        x: (cx += widths.product + gutter),
+        w: widths.size,
+        align: "right" as const,
+      },
+      open: {
+        x: (cx += widths.size + gutter),
+        w: widths.open,
+        align: "right" as const,
+      },
+      close: {
+        x: (cx += widths.open + gutter),
+        w: widths.close,
+        align: "right" as const,
+      },
+      sold: {
+        x: (cx += widths.close + gutter),
+        w: widths.sold,
+        align: "right" as const,
+      },
+      price: {
+        x: (cx += widths.sold + gutter),
+        w: widths.price,
+        align: "right" as const,
+      },
+      total: {
+        x: (cx += widths.price + gutter),
+        w: widths.total,
+        align: "right" as const,
+      },
     } as const;
 
     // Function to draw header row
@@ -305,13 +362,34 @@ export const getBillHistoryPDF = async (
       doc.save();
       doc.rect(table.x, y, table.width, table.rowHeight).fill(table.headerBg);
       doc.fillColor(table.headerTextColor).font("Helvetica-Bold").fontSize(10);
-      doc.text("Product", col.product.x, y + 6, { width: col.product.w, align: col.product.align });
-      doc.text("Size", col.size.x, y + 6, { width: col.size.w, align: col.size.align });
-      doc.text("Open Stock", col.open.x, y + 6, { width: col.open.w, align: col.open.align });
-      doc.text("Closing Stock", col.close.x, y + 6, { width: col.close.w, align: col.close.align });
-      doc.text("Qty Sold", col.sold.x, y + 6, { width: col.sold.w, align: col.sold.align });
-      doc.text("Price", col.price.x, y + 6, { width: col.price.w, align: col.price.align });
-      doc.text("Total Sale (₹)", col.total.x, y + 6, { width: col.total.w, align: col.total.align });
+      doc.text("Product", col.product.x, y + 6, {
+        width: col.product.w,
+        align: col.product.align,
+      });
+      doc.text("Size", col.size.x, y + 6, {
+        width: col.size.w,
+        align: col.size.align,
+      });
+      doc.text("Open Stock", col.open.x, y + 6, {
+        width: col.open.w,
+        align: col.open.align,
+      });
+      doc.text("Closing Stock", col.close.x, y + 6, {
+        width: col.close.w,
+        align: col.close.align,
+      });
+      doc.text("Qty Sold", col.sold.x, y + 6, {
+        width: col.sold.w,
+        align: col.sold.align,
+      });
+      doc.text("Price", col.price.x, y + 6, {
+        width: col.price.w,
+        align: col.price.align,
+      });
+      doc.text("Total Sale (₹)", col.total.x, y + 6, {
+        width: col.total.w,
+        align: col.total.align,
+      });
       doc.restore();
     };
 
@@ -325,7 +403,10 @@ export const getBillHistoryPDF = async (
     if (rows.length === 0) {
       // If no stock updates found, draw an empty table header and a friendly note
       doc.font("Helvetica").fontSize(10).fillColor("#666");
-      doc.text("No stock updates recorded for this bill.", table.x, y + 12, { width: table.width, align: "center" });
+      doc.text("No stock updates recorded for this bill.", table.x, y + 12, {
+        width: table.width,
+        align: "center",
+      });
     }
 
     rows.forEach((r, i) => {
@@ -345,18 +426,44 @@ export const getBillHistoryPDF = async (
       } else {
         // White rows are page background; draw a thin hairline for separation
         doc.save();
-        doc.strokeColor("#e0e6ef").lineWidth(0.5).moveTo(table.x, y + table.rowHeight).lineTo(table.x + table.width, y + table.rowHeight).stroke();
+        doc
+          .strokeColor("#e0e6ef")
+          .lineWidth(0.5)
+          .moveTo(table.x, y + table.rowHeight)
+          .lineTo(table.x + table.width, y + table.rowHeight)
+          .stroke();
         doc.restore();
       }
 
       doc.fillColor(table.textColor).font("Helvetica").fontSize(10);
-      doc.text(r.product, col.product.x, y + 6, { width: col.product.w, align: col.product.align });
-      doc.text(String(r.size), col.size.x, y + 6, { width: col.size.w, align: col.size.align });
-      doc.text(String(r.open), col.open.x, y + 6, { width: col.open.w, align: col.open.align });
-      doc.text(String(r.close), col.close.x, y + 6, { width: col.close.w, align: col.close.align });
-      doc.text(String(r.sold), col.sold.x, y + 6, { width: col.sold.w, align: col.sold.align });
-      doc.text(currency(r.price), col.price.x, y + 6, { width: col.price.w, align: col.price.align });
-      doc.text(currency(r.total), col.total.x, y + 6, { width: col.total.w, align: col.total.align });
+      doc.text(r.product, col.product.x, y + 6, {
+        width: col.product.w,
+        align: col.product.align,
+      });
+      doc.text(String(r.size), col.size.x, y + 6, {
+        width: col.size.w,
+        align: col.size.align,
+      });
+      doc.text(String(r.open), col.open.x, y + 6, {
+        width: col.open.w,
+        align: col.open.align,
+      });
+      doc.text(String(r.close), col.close.x, y + 6, {
+        width: col.close.w,
+        align: col.close.align,
+      });
+      doc.text(String(r.sold), col.sold.x, y + 6, {
+        width: col.sold.w,
+        align: col.sold.align,
+      });
+      doc.text(currency(r.price), col.price.x, y + 6, {
+        width: col.price.w,
+        align: col.price.align,
+      });
+      doc.text(currency(r.total), col.total.x, y + 6, {
+        width: col.total.w,
+        align: col.total.align,
+      });
 
       grandTotal += r.total;
       y += table.rowHeight;
@@ -371,11 +478,22 @@ export const getBillHistoryPDF = async (
       y += table.rowHeight;
     }
     doc.save();
-    doc.strokeColor("#c1c7d0").lineWidth(1).moveTo(table.x, y + 2).lineTo(table.x + table.width, y + 2).stroke();
+    doc
+      .strokeColor("#c1c7d0")
+      .lineWidth(1)
+      .moveTo(table.x, y + 2)
+      .lineTo(table.x + table.width, y + 2)
+      .stroke();
     doc.restore();
     doc.font("Helvetica-Bold").fontSize(11);
-    doc.text("Grand Total", col.price.x - 10, y + 6, { width: col.price.w + col.sold.w, align: "right" });
-    doc.text(currency(grandTotal), col.total.x, y + 6, { width: col.total.w, align: col.total.align });
+    doc.text("Grand Total", col.price.x - 10, y + 6, {
+      width: col.price.w + col.sold.w,
+      align: "right",
+    });
+    doc.text(currency(grandTotal), col.total.x, y + 6, {
+      width: col.total.w,
+      align: col.total.align,
+    });
 
     // Summary section from Bill details (generated in generateBillHistory)
     // Spacing before summary
@@ -390,17 +508,35 @@ export const getBillHistoryPDF = async (
 
     // Draw Summary box background
     const summaryItems: Array<{ label: string; value: string }> = [
-      { label: "Total Beer Sale", value: `₹ ${currency(bill.totalBeerSale ?? 0)}` },
-      { label: "Total Desi Sale", value: `₹ ${currency(bill.totalDesiSale ?? 0)}` },
+      {
+        label: "Total Beer Sale",
+        value: `₹ ${currency(bill.totalBeerSale ?? 0)}`,
+      },
+      {
+        label: "Total Desi Sale",
+        value: `₹ ${currency(bill.totalDesiSale ?? 0)}`,
+      },
       { label: "Discount", value: `₹ ${currency(bill.discount ?? 0)}` },
-      { label: "Breakage Cash", value: `₹ ${currency(bill.breakageCash ?? 0)}` },
+      {
+        label: "Breakage Cash",
+        value: `₹ ${currency(bill.breakageCash ?? 0)}`,
+      },
       { label: "Canteen Cash", value: `₹ ${currency(bill.canteenCash ?? 0)}` },
       { label: "Rent", value: `₹ ${currency(bill.rent ?? 0)}` },
-      { label: "Transportation", value: `₹ ${currency(bill.transportation ?? 0)}` },
+      {
+        label: "Transportation",
+        value: `₹ ${currency(bill.transportation ?? 0)}`,
+      },
       { label: "Rate Difference", value: `₹ ${currency(bill.rateDiff ?? 0)}` },
       { label: "UPI Payment", value: `₹ ${currency(bill.upiPayment ?? 0)}` },
-      { label: "Cash Received", value: `₹ ${currency(bill.totalCashReceived ?? 0)}` },
-      { label: "Total Cash (Reported)", value: `₹ ${currency(bill.totalSale ?? 0)}` },
+      {
+        label: "Cash Received",
+        value: `₹ ${currency(bill.totalCashReceived ?? 0)}`,
+      },
+      {
+        label: "Total Cash (Reported)",
+        value: `₹ ${currency(bill.totalSale ?? 0)}`,
+      },
       { label: "Total (Computed)", value: `₹ ${currency(grandTotal)}` },
     ];
 
@@ -412,8 +548,12 @@ export const getBillHistoryPDF = async (
     const rightColX = table.x + colWidth + colGap;
 
     // Title for the summary
-    ensureSpace(28 + (Math.ceil(summaryItems.length / 2) * 20) + boxPadding * 2);
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#000").text("Summary", leftColX, y, { width: table.width, align: "left" });
+    ensureSpace(28 + Math.ceil(summaryItems.length / 2) * 20 + boxPadding * 2);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .fillColor("#000")
+      .text("Summary", leftColX, y, { width: table.width, align: "left" });
     y += 16;
 
     // Determine box height
@@ -422,7 +562,11 @@ export const getBillHistoryPDF = async (
 
     // Box background
     doc.save();
-    doc.roundedRect(table.x, y - 6, table.width, boxHeight + 6, 6).fillOpacity(0.06).fill("#1976d2").fillOpacity(1);
+    doc
+      .roundedRect(table.x, y - 6, table.width, boxHeight + 6, 6)
+      .fillOpacity(0.06)
+      .fill("#1976d2")
+      .fillOpacity(1);
     doc.restore();
 
     // Draw key-value rows
@@ -430,8 +574,17 @@ export const getBillHistoryPDF = async (
     const drawKV = (label: string, value: string, x: number, yy: number) => {
       const labelWidth = colWidth * 0.6;
       const valueWidth = colWidth * 0.4;
-      doc.font("Helvetica").fillColor("#333").text(label, x + boxPadding, yy, { width: labelWidth, align: "left" });
-      doc.font("Helvetica-Bold").fillColor("#000").text(value, x + boxPadding + labelWidth, yy, { width: valueWidth - boxPadding, align: "right" });
+      doc
+        .font("Helvetica")
+        .fillColor("#333")
+        .text(label, x + boxPadding, yy, { width: labelWidth, align: "left" });
+      doc
+        .font("Helvetica-Bold")
+        .fillColor("#000")
+        .text(value, x + boxPadding + labelWidth, yy, {
+          width: valueWidth - boxPadding,
+          align: "right",
+        });
     };
 
     let yCursor = y + boxPadding;
@@ -446,7 +599,9 @@ export const getBillHistoryPDF = async (
 
     // Footer note
     doc.font("Helvetica").fontSize(9).fillColor("#666");
-    doc.text("Generated by Stock Management", table.x, doc.page.height - 40, { align: "left" });
+    doc.text("Generated by Stock Management", table.x, doc.page.height - 40, {
+      align: "left",
+    });
     doc.fillColor("#000");
 
     doc.end();
