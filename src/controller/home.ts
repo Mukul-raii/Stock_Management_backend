@@ -21,6 +21,7 @@ interface RecordTotals {
 interface BankTotals {
   credit: number;
   debit: number;
+  balance?: number; // Optional balance for Current Bank
 }
 interface PaymentMethodAggregation {
   paymentMethod: string | null;
@@ -236,17 +237,31 @@ export const HomeProperties = async (
     (sum, recordTypes) => sum + (recordTypes.CurrentBank || 0),
     0
   );
-  const totalBankBalance =
-    Object.values(content.BankTransactions).reduce(
-      (sum, bankTransactions) =>
-        sum + (bankTransactions.credit || 0) - (bankTransactions.debit || 0),
-      0
-    ) -
+  
+  // Calculate Current Bank balance separately (with UPI and record payments)
+  const currentBankBalance =
+    (content.BankTransactions["Current Bank"]?.credit || 0) -
+    (content.BankTransactions["Current Bank"]?.debit || 0) -
     bankPaymentByRecord +
     upiPayment;
+  
+  // Calculate total of all other banks (PNB, Saving Banks)
+  const otherBanksBalance = Object.entries(content.BankTransactions)
+    .filter(([bank]) => bank !== "Current Bank")
+    .reduce(
+      (sum, [_, bankData]) =>
+        sum + (bankData.credit || 0) - (bankData.debit || 0),
+      0
+    );
+  
+  const totalBankBalance = currentBankBalance + otherBanksBalance;
 
   content.MoneyCalculation.TotalBank = totalBankBalance;
   content.MoneyCalculation.TotalCash = totalCash;
+  
+  // Add Current Bank specific balance to the response
+  content.BankTransactions["Current Bank"].balance = currentBankBalance;
+  
   content.paymentMethodAgg = paymentMethodAgge;
 
   const companyPaymentRecord = await prisma.record.findMany({
