@@ -3,7 +3,6 @@ import { PrismaClient, Shop } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 
-
 interface ShopTotals {
   totalSale: number;
   totalCashReceived: number;
@@ -31,7 +30,6 @@ interface PaymentMethodAggregation {
   };
 }
 
-
 interface ContentData {
   TotalCash: Record<string, ShopTotals>;
   Record: Record<RecordType, RecordTotals>;
@@ -41,8 +39,9 @@ interface ContentData {
     TotalBank: number;
   };
   paymentMethodAgg: PaymentMethodAggregation[];
-  companyRecords: object
-  stockTotalCost: {}
+  companyRecords: object;
+  stockTotalCost: {};
+  aggregate_data?: object;
 }
 
 const TypeRecordProps = [
@@ -58,6 +57,7 @@ const TypeRecordProps = [
 
 const bankAccounts = [
   "Current Bank",
+  "PNB Bank Account",
   "Saving Bank (Nana)",
   "Saving Bank (Pooja)",
 ];
@@ -108,7 +108,8 @@ export const HomeProperties = async (
     },
     paymentMethodAgg: [],
     companyRecords: {},
-    stockTotalCost: []
+    stockTotalCost: [],
+    aggregate_data: {},
   };
 
   // Aggregate BillHistory data for each shop
@@ -255,16 +256,21 @@ export const HomeProperties = async (
       },
     },
   });
-  function aggregateCompanyPayment(companyPaymentRecord: {
-    id: number,
-    recordName: string,
-    shopName: string | null,
-    message: string,
-    amount: number,
-    date: Date,
-    paymentMethod: string
-  }[]) {
-    const groups: Record<string, { records: typeof companyPaymentRecord, totalAmount: number }> = {};
+  function aggregateCompanyPayment(
+    companyPaymentRecord: {
+      id: number;
+      recordName: string;
+      shopName: string | null;
+      message: string;
+      amount: number;
+      date: Date;
+      paymentMethod: string;
+    }[]
+  ) {
+    const groups: Record<
+      string,
+      { records: typeof companyPaymentRecord; totalAmount: number }
+    > = {};
 
     for (const record of companyPaymentRecord) {
       const words = record.message
@@ -281,21 +287,56 @@ export const HomeProperties = async (
         groups[keyword].totalAmount += record.amount;
       }
     }
-    return groups
+    return groups;
   }
-  const companiesRecords = aggregateCompanyPayment(companyPaymentRecord)
-  content.companyRecords = companiesRecords
+  const companiesRecords = aggregateCompanyPayment(companyPaymentRecord);
+  content.companyRecords = companiesRecords;
 
+  const StockData = await prisma.stock.findMany();
 
-  const StockData = await prisma.stock.findMany()
+  const stock: { shop: string; TotalPrice: number }[] = StockData.map(
+    (item) => ({
+      shop: item.shop,
+      TotalPrice: item.price * (item.quantity || 0),
+    })
+  );
 
-  const stock: { shop: string; TotalPrice: number }[] = StockData.map((item) => ({
-    shop: item.shop,
-    TotalPrice: item.price * (item.quantity || 0),
-  }));
+  content.stockTotalCost = stock;
 
-  content.stockTotalCost = stock
+  /*  PROFIT CALCULATING FORUMULA GENERATING  */
 
+  let Aggregate_data = {};
+
+  const record_aggregate = await prisma.record.groupBy({
+    by: ["recordName", "paymentMethod"],
+    where: {
+      recordName: { in: recordTypes },
+      paymentMethod: { in: ["Cash", "Current Bank", "none"] },
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
+  const bank_aggregate = await prisma.bank.groupBy({
+    by: ["bank", "transaction", "paymentMethod"],
+    where: {
+      bank: { in: bankAccounts },
+      transaction: { in: ["credit", "debit"] },
+      paymentMethod: { in: ["By Cash", "Current Bank", "By None"] },
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
+  Aggregate_data = {
+    record_aggregate: record_aggregate,
+    bank_aggregate: bank_aggregate,
+    total_sale: content.TotalCash,
+    total_bank_transactions: content.BankTransactions,
+  };
+  content.aggregate_data = Aggregate_data;
 
   res.status(200).json(content);
 };
