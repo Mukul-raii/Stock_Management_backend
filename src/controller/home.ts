@@ -15,13 +15,14 @@ interface ShopTotals {
 interface RecordTotals {
   Cash: number;
   CurrentBank: number;
+  PNBBankAccount: number;
   none: number;
 }
 
 interface BankTotals {
   credit: number;
   debit: number;
-  balance?: number; // Optional balance for Current Bank
+  balance?: number; // Optional balance for Current Bank and PNB Bank Account
 }
 interface PaymentMethodAggregation {
   paymentMethod: string | null;
@@ -63,7 +64,7 @@ const bankAccounts = [
   "Saving Bank (Pooja)",
 ];
 type TransactionType = "credit" | "debit";
-type PaymentMethod = "Cash" | "Current Bank" | "none";
+type PaymentMethod = "Cash" | "Current Bank" | "PNB Bank Account" | "none";
 type RecordType = (typeof TypeRecordProps)[number];
 
 export const HomeProperties = async (
@@ -96,7 +97,7 @@ export const HomeProperties = async (
       },
     },
     Record: TypeRecordProps.reduce((acc, recordType) => {
-      acc[recordType] = { Cash: 0, CurrentBank: 0, none: 0 };
+      acc[recordType] = { Cash: 0, CurrentBank: 0, PNBBankAccount: 0, none: 0 };
       return acc;
     }, {} as Record<RecordType, RecordTotals>),
     BankTransactions: bankAccounts.reduce((acc, bank) => {
@@ -147,7 +148,9 @@ export const HomeProperties = async (
     by: ["recordName", "paymentMethod"],
     where: {
       recordName: { in: recordTypes },
-      paymentMethod: { in: ["Cash", "Current Bank", "none"] },
+      paymentMethod: {
+        in: ["Cash", "Current Bank", "PNB Bank Account", "none"],
+      },
     },
     _sum: {
       amount: true,
@@ -159,9 +162,13 @@ export const HomeProperties = async (
     const recordName = agg.recordName as RecordType;
     const paymentMethod = agg.paymentMethod as PaymentMethod;
 
-    // Map "Current Bank" to "CurrentBank" for object property access
+    // Map payment methods to object property keys
     const paymentKey =
-      paymentMethod === "Current Bank" ? "CurrentBank" : paymentMethod;
+      paymentMethod === "Current Bank"
+        ? "CurrentBank"
+        : paymentMethod === "PNB Bank Account"
+        ? "PNBBankAccount"
+        : paymentMethod;
 
     if (
       content.Record[recordName] &&
@@ -233,34 +240,57 @@ export const HomeProperties = async (
     (sum, recordTypes) => sum + (recordTypes.totalUpiPayment || 0),
     0
   );
+
+  // Calculate expenses paid via Current Bank from records
   const bankPaymentByRecord = Object.values(content.Record).reduce(
     (sum, recordTypes) => sum + (recordTypes.CurrentBank || 0),
     0
   );
 
-  // Calculate Current Bank balance separately (with UPI and record payments)
+  // Calculate expenses paid via PNB Bank Account from records
+  const pnbBankPaymentByRecord = Object.values(content.Record).reduce(
+    (sum, recordTypes) => sum + (recordTypes.PNBBankAccount || 0),
+    0
+  );
+
+  // Calculate Current Bank balance
+  // Formula: Bank Credits - Bank Debits - Record Expenses + UPI Income
+  // Bank Credits: Direct deposits/transfers to Current Bank (NOT including daily UPI sales)
+  // Bank Debits: Direct withdrawals/transfers from Current Bank
+  // Record Expenses: Operational expenses paid via Current Bank (separate from Bank debits)
+  // UPI Income: Daily UPI payments from sales (goes to Current Bank but not recorded in Bank credits)
   const currentBankBalance =
     (content.BankTransactions["Current Bank"]?.credit || 0) -
     (content.BankTransactions["Current Bank"]?.debit || 0) -
     bankPaymentByRecord +
     upiPayment;
 
-  // Calculate total of all other banks (PNB, Saving Banks)
+  // Calculate PNB Bank balance
+  // Formula: Bank Credits - Bank Debits - Record Expenses
+  // Record expenses paid via PNB Bank are operational costs (not in Bank debits)
+  const pnbBankBalance =
+    (content.BankTransactions["PNB Bank Account"]?.credit || 0) -
+    (content.BankTransactions["PNB Bank Account"]?.debit || 0) -
+    pnbBankPaymentByRecord;
+
+  // Calculate total of all other banks (Saving Banks only)
   const otherBanksBalance = Object.entries(content.BankTransactions)
-    .filter(([bank]) => bank !== "Current Bank")
+    .filter(([bank]) => bank !== "Current Bank" && bank !== "PNB Bank Account")
     .reduce(
       (sum, [_, bankData]) =>
         sum + (bankData.credit || 0) - (bankData.debit || 0),
       0
     );
 
-  const totalBankBalance = currentBankBalance + otherBanksBalance;
+  const totalBankBalance =
+    currentBankBalance + pnbBankBalance + otherBanksBalance;
 
   content.MoneyCalculation.TotalBank = totalBankBalance;
   content.MoneyCalculation.TotalCash = totalCash;
 
-  // Add Current Bank specific balance to the response
+  // Add specific balances to the response for banks with special calculations
   content.BankTransactions["Current Bank"].balance = currentBankBalance;
+  content.BankTransactions["PNB Bank Account"].balance = pnbBankBalance;
 
   content.paymentMethodAgg = paymentMethodAgge;
 
